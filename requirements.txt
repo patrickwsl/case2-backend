@@ -4,8 +4,16 @@ sqlalchemy
 asyncpg
 alembic
 pydantic
+pydantic[email]
 python-dotenv
 psycopg2-binary
 redis
 celery
 pytest
+pytest-asyncio
+httpx
+python-jose
+passlib[bcrypt]
+python-multipart
+bcrypt<4.0
+aiosqlite

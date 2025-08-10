@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 
+from app.routers import auth, clients
+
 app = FastAPI()
 
-@app.get("/")
-def root():
-    return {"message": "Backend running"}
+app.include_router(auth.router)
+app.include_router(clients.router)

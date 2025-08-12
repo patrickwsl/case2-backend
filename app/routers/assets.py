@@ -36,7 +36,7 @@ async def get_asset_price(symbol: str):
     """
     return {"symbol": symbol, "price": await asset_repo.get_asset_price(symbol)}
 
-@router.get("/list")
+@router.get("/list-yahoo")
 async def list_assets():
     """
     Lista os ativos disponíveis obtidos da fonte Yahoo Finance.
@@ -48,3 +48,17 @@ async def list_assets():
     Date: 10th August 2025
     """
     return await asset_repo.list_assets_from_yahoo()
+
+
+@router.get("/list")
+async def list_assets(db: AsyncSession = Depends(get_db)):
+    """
+    Lista os ativos disponíveis obtidos da fonte Yahoo Finance.
+
+    Returns:
+        list: Lista com informações básicas dos ativos.
+
+    Author: Patrick Lima (patrickwsl)
+    Date: 10th August 2025
+    """
+    return await asset_repo.list_assets_from_db(db=db)

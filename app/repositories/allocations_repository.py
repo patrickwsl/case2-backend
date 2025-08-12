@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from datetime import date
 
 from app.models.allocation import Allocation
@@ -129,3 +130,21 @@ async def delete_allocation(db: AsyncSession, allocation_id: int):
     db.add(db_allocation)
     await db.commit()
     return {"message": "Allocation marked as inactive successfully"}
+
+async def get_by_client(db: AsyncSession, client_id: int):
+    """
+    Retorna todas as alocações de um cliente específico.
+
+    Args:
+        db (AsyncSession): Sessão assíncrona do banco.
+        client_id (int): ID do cliente.
+
+    Returns:
+        list[Allocation]: Lista de alocações.
+    """
+    result = await db.execute(
+        select(Allocation)
+        .options(selectinload(Allocation.asset))
+        .where(Allocation.client_id == client_id)
+    )
+    return result.scalars().all()

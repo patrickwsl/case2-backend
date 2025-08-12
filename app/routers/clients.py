@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas.client import ClientCreate, ClientUpdate, ClientOut
 from app.models.client import Client
-from app.repositories import client as client_repo
+from app.repositories import client as client_repo, finance
 from app.core.security import require_role, get_current_user
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -122,3 +122,7 @@ async def delete_client(client_id: int, db: AsyncSession = Depends(get_db), user
         raise HTTPException(status_code=404, detail="Client not found")
     await client_repo.delete_client(db, db_client)
     return {"detail": "Client deleted"}
+
+@router.get("/{client_id}/performance")
+async def get_client_performance(client_id: int, db: AsyncSession = Depends(get_db)):
+    return await finance.calculate_client_performance(db, client_id)

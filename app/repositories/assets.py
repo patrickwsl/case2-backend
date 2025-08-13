@@ -2,6 +2,7 @@ import yfinance as yf
 import redis
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from app.models.allocation import Allocation
 from app.models.asset import Asset
 from app.core.config import REDIS_HOST, REDIS_PORT
 
@@ -93,3 +94,26 @@ async def list_assets_from_db(db: AsyncSession):
     """
     result = await db.execute(select(Asset))
     return result.scalars().all()
+
+
+async def list_assets_by_client(db: AsyncSession, client_id: int):
+    """
+    Lista todos os ativos por cliente.
+
+    Args:
+        db (AsyncSession): Sessão assíncrona do banco.
+        client_id: ID do cliente.
+
+    Returns:
+        list: Lista de objetos Asset.
+
+    Author: Patrick Lima (patrickwsl)
+    Date: 13th August 2025
+    """
+    query = (
+        select(Asset.ticker, Allocation.quantity)
+        .join(Allocation, Allocation.asset_id == Asset.id)
+        .where(Allocation.client_id == client_id)
+    )
+    result = await db.execute(query)
+    return result.all()

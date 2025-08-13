@@ -1,11 +1,10 @@
 import asyncio
 import json
-import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import SessionLocal
-from app.repositories import assets as assets_repo
 from app.repositories import daily_returns as dr_repo
+from app.repositories.client import get_clients
 from app.routers import auth, clients, allocations, assets, prices
 
 app = FastAPI()
@@ -18,47 +17,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.websocket("/ws/prices")
-async def websocket_prices(websocket: WebSocket):
+@app.websocket("/ws/captado")
+async def websocket_prices(websocket: WebSocket, month: int, year: int):
     await websocket.accept()
-    
     try:
         async with SessionLocal() as session:
             while True:
-                try:
-                    assets = await assets_repo.list_assets_from_db(session)
-                    prices = []
-                    
-                    for asset in assets:
-                        latest = await dr_repo.get_latest_by_asset(session, asset.id)
-                        if latest:
-                            prices.append({
-                                "ticker": asset.ticker, 
-                                "price": float(latest.close_price)
-                            })
+                clients = await get_clients(session, skip=0, limit=999)
+                data_to_send = []
+                for client in clients:
+                    data_to_send.append({
+                        "client_name": client.name,
+                        "anual": await dr_repo.get_captured_by_period(session, client.id, "anual", year),
+                        "semestral": await dr_repo.get_captured_by_period(session, client.id, "semestral", year, month),
+                        "mensal": await dr_repo.get_captured_by_period(session, client.id, "mensal", year, month),
+                        "semanal": await dr_repo.get_captured_by_period(session, client.id, "semanal", year, month),
+                    })
 
-                    if websocket.client_state.name != "DISCONNECTED":
-                        await websocket.send_text(json.dumps(prices))
-                    
-                    await asyncio.sleep(5)
-                    
-                except Exception as e:
-                    logging.error(f"Erro ao processar dados: {e}")
-                    try:
-                        await websocket.send_text(json.dumps({"error": str(e)}))
-                    except:
-                        break
-                        
+                await websocket.send_text(json.dumps(data_to_send, ensure_ascii=False))
+                await asyncio.sleep(5)
     except WebSocketDisconnect:
-        print("Client disconnected")
-    except Exception as e:
-        print(f"WebSocket error: {e}")
-    finally:
-        try:
-            await websocket.close()
-        except:
-            pass
-        
+        pass
+
 app.include_router(auth.router)
 app.include_router(clients.router)
 app.include_router(allocations.router)

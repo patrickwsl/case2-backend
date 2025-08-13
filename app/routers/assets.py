@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.repositories import assets_repository as asset_repo
+from app.repositories import assets as asset_repo
 
 router = APIRouter(prefix="/assets", tags=["Assets"])
 

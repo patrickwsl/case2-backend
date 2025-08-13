@@ -7,7 +7,7 @@ from datetime import date
 from app.models.allocation import Allocation
 from app.models.asset import Asset
 from app.schemas.allocation import AllocationCreate, AllocationUpdate
-from app.repositories.assets_repository import get_asset_price
+from app.repositories import assets as assets_repo
 
 async def create_allocation(db: AsyncSession, allocation: AllocationCreate):
     """
@@ -31,7 +31,7 @@ async def create_allocation(db: AsyncSession, allocation: AllocationCreate):
     if not asset:
         raise ValueError("Asset not found")
 
-    current_price = await get_asset_price(asset.ticker)
+    current_price = await assets_repo.get_asset_price(asset.ticker)
 
     db_allocation = Allocation(
         client_id=allocation.client_id,

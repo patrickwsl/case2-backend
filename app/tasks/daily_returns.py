@@ -1,10 +1,9 @@
 from celery import Celery
 from datetime import date, timedelta
 import yfinance as yf
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.daily_return import DailyReturn
 from app.database import SessionLocal
-from app.repositories.assets_repository import list_assets_from_db
+from app.repositories import assets as assets_repo
 
 async_session_maker= SessionLocal
 celery_app = Celery("tasks", broker="redis://redis:6379/0")
@@ -16,7 +15,7 @@ def fetch_and_store_daily_returns():
 
     async def _run():
         async with async_session_maker() as session:
-            assets = await list_assets_from_db(session)
+            assets = await assets_repo.list_assets_from_db(session)
             for asset in assets:
                 data = yf.Ticker(asset.ticker).history(start=yesterday, end=date.today())
                 if not data.empty:

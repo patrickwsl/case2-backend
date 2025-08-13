@@ -1,18 +1,12 @@
-import asyncio
 import io
-import logging
 from curl_cffi import AsyncSession
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
-from asyncio import sleep
-import json
+from fastapi import APIRouter, Depends, Query
 
 from fastapi.responses import StreamingResponse
 import pandas as pd
 
-from app.database import SessionLocal, get_db
-from app.repositories.allocations_repository import get_by_client
-from app.repositories.assets_repository import list_assets_from_db
-from app.repositories.daily_returns import get_latest_by_asset
+from app.database import get_db
+from app.repositories.allocations import get_by_client
 from app.repositories.finance import get_asset_metrics
 
 router = APIRouter(prefix="/prices", tags=["prices"])

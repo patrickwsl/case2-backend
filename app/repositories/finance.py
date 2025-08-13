@@ -3,10 +3,10 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.daily_return import DailyReturn
-from app.repositories import allocations_repository, daily_returns as dr_repo
+from app.repositories import allocations as allocations_repo, daily_returns as dr_repo
 
 async def calculate_client_performance(db: AsyncSession, client_id: int):
-    allocations = await allocations_repository.get_by_client(db, client_id)
+    allocations = await allocations_repo.get_by_client(db, client_id)
     if not allocations:
         return []
 

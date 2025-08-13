@@ -4,8 +4,8 @@ import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import SessionLocal
-from app.repositories.assets_repository import list_assets_from_db
-from app.repositories.daily_returns import get_latest_by_asset
+from app.repositories import assets as assets_repo
+from app.repositories import daily_returns as dr_repo
 from app.routers import auth, clients, allocations, assets, prices
 
 app = FastAPI()
@@ -26,11 +26,11 @@ async def websocket_prices(websocket: WebSocket):
         async with SessionLocal() as session:
             while True:
                 try:
-                    assets = await list_assets_from_db(session)
+                    assets = await assets_repo.list_assets_from_db(session)
                     prices = []
                     
                     for asset in assets:
-                        latest = await get_latest_by_asset(session, asset.id)
+                        latest = await dr_repo.get_latest_by_asset(session, asset.id)
                         if latest:
                             prices.append({
                                 "ticker": asset.ticker, 

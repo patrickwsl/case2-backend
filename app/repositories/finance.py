@@ -1,5 +1,8 @@
 from collections import defaultdict
+from datetime import date
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.daily_return import DailyReturn
 from app.repositories import allocations_repository, daily_returns as dr_repo
 
 async def calculate_client_performance(db: AsyncSession, client_id: int):
@@ -86,3 +89,46 @@ async def calculate_client_performance(db: AsyncSession, client_id: int):
         })
 
     return result
+
+async def get_asset_metrics(
+    db: AsyncSession,
+    asset_id: int,
+    buy_price: float,
+    quantity: float,
+    buy_date: date = None
+):
+    stmt = select(DailyReturn).where(DailyReturn.asset_id == asset_id)
+    if buy_date:
+        stmt = stmt.where(DailyReturn.date >= buy_date)
+    stmt = stmt.order_by(DailyReturn.date)
+    result = await db.execute(stmt)
+    daily_returns = result.scalars().all()
+
+    if not daily_returns:
+        return None
+
+    initial_price = daily_returns[0].close_price
+    latest_price = daily_returns[-1].close_price
+
+    total_invested = buy_price * quantity
+    current_value = latest_price * quantity
+    profit_loss = current_value - total_invested
+    percentage_change = ((latest_price - buy_price) / buy_price) * 100
+
+    # variação diária média simples
+    daily_changes = []
+    for i in range(1, len(daily_returns)):
+        prev_close = daily_returns[i-1].close_price
+        curr_close = daily_returns[i].close_price
+        daily_changes.append((curr_close - prev_close) / prev_close)
+    avg_daily_return = sum(daily_changes) / len(daily_changes) if daily_changes else 0
+
+    return {
+        "total_invested": total_invested,
+        "current_value": current_value,
+        "profit_loss": profit_loss,
+        "percentage_change": percentage_change,
+        "avg_daily_return": avg_daily_return,
+        "start_date": daily_returns[0].date,
+        "end_date": daily_returns[-1].date,
+    }

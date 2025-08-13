@@ -43,3 +43,14 @@ async def create_daily_return(db: AsyncSession, asset_id: int, date: date, close
     await db.commit()
     await db.refresh(daily_return)
     return daily_return
+
+
+async def get_latest_by_asset(db: AsyncSession, asset_id: int):
+    stmt = (
+        select(DailyReturn)
+        .where(DailyReturn.asset_id == asset_id)
+        .order_by(DailyReturn.date.desc())
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    return result.scalars().first()

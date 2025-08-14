@@ -15,3 +15,4 @@ class Allocation(Base):
     is_active = Column(Boolean, default=True, nullable=False)
 
     asset = relationship("Asset", back_populates="allocations")
+    client = relationship("Client", back_populates="allocations")

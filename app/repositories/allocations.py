@@ -45,7 +45,14 @@ async def create_allocation(db: AsyncSession, allocation: AllocationCreate):
     await db.refresh(db_allocation)
     return db_allocation
 
-async def get_all_allocations(db: AsyncSession, is_active: Optional[bool] = None):
+async def get_all_allocations(
+    db: AsyncSession,
+    is_active: Optional[bool] = None,
+    client_id: Optional[int] = None,
+    asset_id: Optional[int] = None,
+    page: int = 1,
+    limit: int = 10
+):
     """
     Obtém lista de alocações, opcionalmente filtrando por status ativo/inativo.
 
@@ -59,9 +66,21 @@ async def get_all_allocations(db: AsyncSession, is_active: Optional[bool] = None
     Author: Patrick Lima (patrickwsl)
     Date: 10th August 2025
     """
-    query = select(Allocation)
+    query = select(Allocation).options(
+        selectinload(Allocation.client),
+        selectinload(Allocation.asset)
+    )
+
     if is_active is not None:
         query = query.where(Allocation.is_active == is_active)
+    if client_id:
+        query = query.where(Allocation.client_id == client_id)
+    if asset_id:
+        query = query.where(Allocation.asset_id == asset_id)
+
+    offset = (page - 1) * limit
+    query = query.offset(offset).limit(limit)
+
     result = await db.execute(query)
     return result.scalars().all()
 
@@ -79,7 +98,14 @@ async def get_allocation_by_id(db: AsyncSession, allocation_id: int):
     Author: Patrick Lima (patrickwsl)
     Date: 10th August 2025
     """
-    result = await db.execute(select(Allocation).filter(Allocation.id == allocation_id))
+    result = await db.execute(
+        select(Allocation)
+        .where(Allocation.id == allocation_id)
+        .options(
+            selectinload(Allocation.client),
+            selectinload(Allocation.asset)
+        )
+    )
     return result.scalar_one_or_none()
 
 async def update_allocation(db: AsyncSession, allocation_id: int, allocation: AllocationUpdate):
@@ -144,7 +170,10 @@ async def get_by_client(db: AsyncSession, client_id: int):
     """
     result = await db.execute(
         select(Allocation)
-        .options(selectinload(Allocation.asset))
+        .options(
+            selectinload(Allocation.asset),
+            selectinload(Allocation.client)
+        )
         .where(Allocation.client_id == client_id)
     )
     return result.scalars().all()

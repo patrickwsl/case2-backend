@@ -2,6 +2,9 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
+from app.schemas.asset import AssetBase
+from app.schemas.client import ClientBase
+
 
 class AllocationBase(BaseModel):
     client_id: int
@@ -24,5 +27,7 @@ class AllocationUpdate(BaseModel):
 
 class AllocationResponse(AllocationBase):
     id: int
+    client: ClientBase
+    asset: AssetBase
 
     model_config = ConfigDict(from_attributes=True)

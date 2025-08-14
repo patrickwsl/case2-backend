@@ -27,7 +27,11 @@ async def create_allocation_endpoint(allocation: AllocationCreate, db: AsyncSess
 @router.get("/", response_model=list[AllocationResponse])
 async def list_allocations(
     db: AsyncSession = Depends(get_db),
-    is_active: Optional[bool] = Query(None, description="Filter by active status")
+    is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    client_id: Optional[int] = Query(None, description="Filter by client"),
+    asset_id: Optional[int] = Query(None, description="Filter by asset"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1)
 ):
     """
     Lista alocações, podendo filtrar pelo status ativo/inativo.
@@ -35,6 +39,10 @@ async def list_allocations(
     Args:
         db (AsyncSession): Sessão assíncrona do banco.
         is_active (Optional[bool]): Filtra por alocações ativas (True), inativas (False) ou todas (None).
+        client_id: Optional[int] = Query(None, description="Filter by client")
+        asset_id: Optional[int] = Query(None, description="Filter by asset")
+        page: int = Query(1, ge=1)
+        limit: int = Query(10, ge=1)
 
     Returns:
         List[AllocationResponse]: Lista de alocações conforme filtro.
@@ -42,7 +50,9 @@ async def list_allocations(
     Author: Patrick Lima (patrickwsl)
     Date: 10th August 2025
     """
-    return await allocation_repo.get_all_allocations(db, is_active)
+    return await allocation_repo.get_all_allocations(
+        db, is_active=is_active, client_id=client_id, asset_id=asset_id, page=page, limit=limit
+    )
 
 @router.get("/{allocation_id}", response_model=AllocationResponse)
 async def get_allocation(allocation_id: int, db: AsyncSession = Depends(get_db)):

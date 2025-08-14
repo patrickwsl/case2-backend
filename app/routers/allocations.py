@@ -3,12 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.repositories import allocations as allocation_repo
-from app.schemas.allocation import AllocationCreate, AllocationUpdate, AllocationResponse
+from app.schemas.allocation import AllocationCreateBySymbol, AllocationUpdate, AllocationResponse
 
 router = APIRouter(prefix="/allocations", tags=["Allocations"])
 
 @router.post("/", response_model=AllocationResponse)
-async def create_allocation_endpoint(allocation: AllocationCreate, db: AsyncSession = Depends(get_db)):
+async def create_allocation_endpoint(allocation: AllocationCreateBySymbol, db: AsyncSession = Depends(get_db)):
     """
     Cria uma nova alocação de um ativo para um cliente.
 
@@ -22,7 +22,11 @@ async def create_allocation_endpoint(allocation: AllocationCreate, db: AsyncSess
     Author: Patrick Lima (patrickwsl)
     Date: 10th August 2025
     """
-    return await allocation_repo.create_allocation(db, allocation)
+    try:
+        allocation_obj = await allocation_repo.create_allocation_by_symbol(db, allocation)
+        return allocation_obj
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/", response_model=list[AllocationResponse])
 async def list_allocations(

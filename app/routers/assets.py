@@ -1,5 +1,5 @@
 from datetime import date
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import SessionLocal, get_db
@@ -42,7 +42,11 @@ async def get_asset_price(symbol: str):
     return {"symbol": symbol, "price": await asset_repo.get_asset_price(symbol)}
 
 @router.get("/list-yahoo")
-async def list_assets():
+async def list_assets_endpoint(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(100, ge=1, le=500),
+    with_price: bool = Query(True)
+):
     """
     Lista os ativos disponíveis obtidos da fonte Yahoo Finance.
 
@@ -52,7 +56,7 @@ async def list_assets():
     Author: Patrick Lima (patrickwsl)
     Date: 10th August 2025
     """
-    return await asset_repo.list_assets_from_yahoo()
+    return await asset_repo.list_assets_from_yahoo(page=page, per_page=per_page, with_price=with_price)
 
 
 @router.get("/list")
@@ -70,18 +74,16 @@ async def list_assets(db: AsyncSession = Depends(get_db)):
 
 @router.get("/script")
 async def populate_daily_returns():
-    """Script para preencher dados no banco para testar"""
+    """Script para preencher daily returns de todos os assets cadastrados no banco."""
     async with SessionLocal() as session:
-        tickers = ['PETR4.SA', 'VALE3.SA', 'ITUB4.SA']
+        result = await session.execute(select(Asset.id, Asset.ticker))
+        assets = result.all()
+
         start = date(2025, 1, 1)
         end = date.today()
 
-        for t in tickers:
-            data = yf.download(t, start=start, end=end)
-            asset_id = await session.execute(
-                select(Asset.id).where(Asset.ticker == t)
-            )
-            asset_id = asset_id.scalar_one()
+        for asset_id, ticker in assets:
+            data = yf.download(ticker, start=start, end=end)
 
             for d, row in data.iterrows():
                 dr = DailyReturn(
@@ -92,3 +94,5 @@ async def populate_daily_returns():
                 session.add(dr)
 
         await session.commit()
+
+    return {"status": "ok", "message": "Daily returns populados com sucesso"}

@@ -15,6 +15,15 @@ class AllocationBase(BaseModel):
     is_active: Optional[bool] = True
 
 
+class AllocationCreateBySymbol(BaseModel):
+    client_id: int
+    asset_symbol: str
+    asset_name: str
+    quantity: float
+    buy_price: Optional[float] = None
+    buy_date: Optional[date] = None
+
+
 class AllocationCreate(AllocationBase):
     pass
 

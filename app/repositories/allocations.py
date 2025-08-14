@@ -6,10 +6,10 @@ from datetime import date
 
 from app.models.allocation import Allocation
 from app.models.asset import Asset
-from app.schemas.allocation import AllocationCreate, AllocationUpdate
+from app.schemas.allocation import AllocationCreateBySymbol, AllocationUpdate
 from app.repositories import assets as assets_repo
 
-async def create_allocation(db: AsyncSession, allocation: AllocationCreate):
+async def create_allocation_by_symbol(db: AsyncSession, allocation: AllocationCreateBySymbol):
     """
     Cria uma nova alocação de ativo para um cliente.
 
@@ -26,23 +26,28 @@ async def create_allocation(db: AsyncSession, allocation: AllocationCreate):
     Author: Patrick Lima (patrickwsl)
     Date: 10th August 2025
     """
-    result = await db.execute(select(Asset).filter(Asset.id == allocation.asset_id))
+    result = await db.execute(select(Asset).filter(Asset.ticker == allocation.asset_symbol))
     asset = result.scalar_one_or_none()
+
     if not asset:
-        raise ValueError("Asset not found")
+        asset = Asset(ticker=allocation.asset_symbol, name=allocation.asset_name)
+        db.add(asset)
+        await db.commit()
+        await db.refresh(asset)
 
     current_price = await assets_repo.get_asset_price(asset.ticker)
 
     db_allocation = Allocation(
         client_id=allocation.client_id,
-        asset_id=allocation.asset_id,
+        asset_id=asset.id,
         quantity=allocation.quantity,
         buy_price=current_price if allocation.buy_price is None else allocation.buy_price,
         buy_date=allocation.buy_date or date.today()
     )
+
     db.add(db_allocation)
     await db.commit()
-    await db.refresh(db_allocation)
+    await db.refresh(db_allocation, attribute_names=["client", "asset"])
     return db_allocation
 
 async def get_all_allocations(

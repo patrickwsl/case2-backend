@@ -17,11 +17,16 @@ async def test_create_asset(client):
 async def test_list_assets_yahoo(client):
     response = await client.get("/assets/list-yahoo")
     assert response.status_code == 200
+
     data = response.json()
-    assert isinstance(data, list)
-    if data:
-        assert "symbol" in data[0]
-        assert "price" in data[0]
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert isinstance(data["items"], list)
+
+    if data["items"]:
+        first_item = data["items"][0]
+        assert "symbol" in first_item
+        assert "price" in first_item
 
 @pytest.mark.asyncio
 async def test_list_assets_db(client):

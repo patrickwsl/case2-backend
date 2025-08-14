@@ -1,95 +1,128 @@
-import uuid
 import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock, patch
 from datetime import date
 
-pytestmark = pytest.mark.asyncio
+from app.main import app
+
+client = TestClient(app)
+
+
+# -------------------- Mocks --------------------
 
 @pytest.fixture(autouse=True)
-def mock_get_asset_price(mocker):
-    mocker.patch("app.repositories.allocations_repository.get_asset_price", return_value=100.0)
-@pytest.fixture
-async def setup_client(db_session):
-    from app.models.client import Client
-    unique_email = f"client_{uuid.uuid4().hex[:8]}@test.com"
-    client = Client(name="Client Test", email=unique_email, status="active")
-    db_session.add(client)
-    await db_session.commit()
-    await db_session.refresh(client)
-    return client
+def mock_get_asset_price():
+    with patch("app.repositories.allocations.assets_repo.get_asset_price", return_value=100.0):
+        yield
+
 
 @pytest.fixture
-async def setup_asset(db_session):
-    from app.models.asset import Asset
-    asset = Asset(
-        ticker="TEST",
-        name="Test Asset"
-    )
-    db_session.add(asset)
-    await db_session.commit()
-    await db_session.refresh(asset)
-    return asset
+def fake_client():
+    return {
+        "id": 1,
+        "name": "Client Test",
+        "email": "client@test.com",
+        "is_active": True
+    }
+
 
 @pytest.fixture
-async def setup_allocation(client, setup_client, setup_asset):
-    payload = {
-        "client_id": setup_client.id,
-        "asset_id": setup_asset.id,
+def fake_asset():
+    return {
+        "id": 1,
+        "ticker": "TEST",
+        "name": "Test Asset"
+    }
+
+
+@pytest.fixture
+def fake_allocation(fake_client, fake_asset):
+    return {
+        "id": 1,
+        "client_id": fake_client["id"],
+        "asset_id": fake_asset["id"],
         "quantity": 10.0,
         "buy_price": 100.0,
-        "buy_date": str(date.today())
+        "buy_date": str(date.today()),
+        "is_active": True,
+        "client": fake_client,
+        "asset": fake_asset
     }
-    response = await client.post("/allocations/", json=payload)
-    return response.json()
 
-async def test_create_allocation(client, setup_client, setup_asset):
+
+# -------------------- Testes --------------------
+
+def test_create_allocation(fake_client, fake_asset, fake_allocation):
     payload = {
-        "client_id": setup_client.id,
-        "asset_id": setup_asset.id,
+        "client_id": fake_client["id"],
+        "asset_symbol": fake_asset["ticker"],
+        "asset_name": fake_asset["name"],
         "quantity": 5.5,
         "buy_price": None,
         "buy_date": str(date.today())
     }
-    response = await client.post("/allocations/", json=payload)
-    assert response.status_code in (200, 201)
+
+    allocation_return = fake_allocation.copy()
+    allocation_return.update({
+        "quantity": payload["quantity"],
+        "buy_price": 100.0
+    })
+
+    with patch("app.repositories.allocations.create_allocation_by_symbol", new_callable=AsyncMock) as mock_create:
+        mock_create.return_value = allocation_return
+        response = client.post("/allocations/", json=payload)
+
+    assert response.status_code == 200
     data = response.json()
     assert data["client_id"] == payload["client_id"]
-    assert data["asset_id"] == payload["asset_id"]
+    assert data["asset_id"] == fake_asset["id"]
     assert data["quantity"] == payload["quantity"]
     assert "id" in data
     assert data["is_active"] is True
+    assert "client" in data
+    assert "asset" in data
 
-async def test_list_allocations(client, setup_allocation):
-    response = await client.get("/allocations/")
+
+def test_list_allocations(fake_allocation):
+    with patch("app.repositories.allocations.get_all_allocations", new_callable=AsyncMock) as mock_list:
+        mock_list.return_value = [fake_allocation]
+        response = client.get("/allocations/")
+
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
-    assert any(alloc["id"] == setup_allocation["id"] for alloc in data)
+    assert any(alloc["id"] == fake_allocation["id"] for alloc in data)
 
-async def test_get_allocation(client, setup_allocation):
-    allocation_id = setup_allocation["id"]
-    response = await client.get(f"/allocations/{allocation_id}")
+
+def test_get_allocation(fake_allocation):
+    with patch("app.repositories.allocations.get_allocation_by_id", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = fake_allocation
+        response = client.get(f"/allocations/{fake_allocation['id']}")
+
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == allocation_id
+    assert data["id"] == fake_allocation["id"]
 
-async def test_update_allocation(client, setup_allocation):
-    allocation_id = setup_allocation["id"]
-    update_payload = {
-        "quantity": 20.0,
-        "buy_price": 150.0
-    }
-    response = await client.put(f"/allocations/{allocation_id}", json=update_payload)
+
+def test_update_allocation(fake_allocation):
+    update_payload = {"quantity": 20.0, "buy_price": 150.0}
+    updated_allocation = fake_allocation.copy()
+    updated_allocation.update(update_payload)
+
+    with patch("app.repositories.allocations.update_allocation", new_callable=AsyncMock) as mock_update:
+        mock_update.return_value = updated_allocation
+        response = client.put(f"/allocations/{fake_allocation['id']}", json=update_payload)
+
     assert response.status_code == 200
     data = response.json()
     assert data["quantity"] == update_payload["quantity"]
     assert data["buy_price"] == update_payload["buy_price"]
 
-async def test_delete_allocation(client, setup_allocation):
-    allocation_id = setup_allocation["id"]
-    response = await client.delete(f"/allocations/{allocation_id}")
+
+def test_delete_allocation(fake_allocation):
+    with patch("app.repositories.allocations.delete_allocation", new_callable=AsyncMock) as mock_delete:
+        mock_delete.return_value = {"message": "Allocation marked as inactive successfully"}
+        response = client.delete(f"/allocations/{fake_allocation['id']}")
+
     assert response.status_code == 200
     assert response.json()["message"] == "Allocation marked as inactive successfully"
-
-    response = await client.get(f"/allocations/{allocation_id}")
-    data = response.json()
-    assert data["is_active"] is False

@@ -39,10 +39,8 @@ async def test_calculate_client_performance_basic():
         FakeDailyReturn(date(2023, 1, 4), 115),
     ]
 
-    # Mocks
-    with patch("app.repositories.finance.allocations_repository.get_by_client", new=AsyncMock(return_value=allocations)):
+    with patch("app.repositories.finance.allocations_repo.get_by_client", new=AsyncMock(return_value=allocations)):
         with patch("app.repositories.finance.dr_repo.get_by_asset", new=AsyncMock(return_value=daily_returns)):
-
             db_session = AsyncMock()
             result = await calculate_client_performance(db_session, client_id=123)
 
@@ -50,7 +48,7 @@ async def test_calculate_client_performance_basic():
     assert len(result) == 1
     perf = result[0]
     assert perf["ticker"] == "AAPL"
-    assert perf["total_invested"] == 100*10 + 110*5
+    assert perf["total_invested"] == 100 * 10 + 110 * 5
     assert "performance_curve" in perf
     assert perf["start_date"] == "2023-01-01"
     assert perf["end_date"] == "2023-01-04"
